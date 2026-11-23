@@ -147,7 +147,7 @@ runs:
     # writes github_token into the origin URL in .git/config, so a prompt-injected pull request could
     # otherwise ask Claude to read that file and quote the token in its comment. A Read deny also
     # applies to Grep and Glob. tests/test_action.py fails if this deny is removed.
-    - uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
+    - uses: anthropics/claude-code-action@cc98b3ae241b0fcfb6a42a2690751afffecb4452 # v1.0.278
       id: claude
       with:
         path_to_bun_executable: ${{ steps.tools.outputs.bun }}
