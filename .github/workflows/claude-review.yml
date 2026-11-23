@@ -125,7 +125,7 @@ jobs:
           persist-credentials: false # Claude reaches GitHub only through gh with the action's token
 
       # agent-ci action ref (content of v1.0.1); see the header.
-      - uses: app-product-foundation/agent-ci/action/claude-review@5a43c8c0727fae7e766a543d5ae452751007dc7d # v1.0.1
+      - uses: app-product-foundation/agent-ci/action/claude-review@4eb9d417e45e60712a34d84765550f98d97294a3 # v1.0.1
         with:
           lane: code
           claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -154,7 +154,7 @@ jobs:
           persist-credentials: false # Claude reaches GitHub only through gh with the action's token
 
       # agent-ci action ref (content of v1.0.1); see the header.
-      - uses: app-product-foundation/agent-ci/action/claude-review@5a43c8c0727fae7e766a543d5ae452751007dc7d # v1.0.1
+      - uses: app-product-foundation/agent-ci/action/claude-review@4eb9d417e45e60712a34d84765550f98d97294a3 # v1.0.1
         with:
           lane: security
           claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
