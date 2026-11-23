@@ -2,6 +2,18 @@
 
 Each release says whether the review output changes. Prompt changes are behaviour changes.
 
+## [1.0.2] - 2026-11-23
+
+Tool restriction hardened (app-product-foundation/agent-ci#7). **Review output does not change:**
+the prompts and the rendered prompt snapshots are identical to 1.0.1.
+
+- The composite action passes `--disallowedTools "Read(./.git/**)"` to Claude Code; the deny also
+  applies to Grep and Glob. In agent mode `claude-code-action` writes `github_token` into the
+  origin URL in `.git/config`, so a prompt-injected pull request could otherwise ask Claude to read
+  that file and quote the token in its comment. A downstream caller previously passed this deny
+  itself and lost it when adopting agent-ci 1.0.1.
+- New test `tests/test_action.py` fails if the deny is removed or the allowed tools widen.
+
 ## [1.0.1] - 2026-11-23
 
 Public release (app-product-foundation/agent-ci#6). **Review output does not change:**
