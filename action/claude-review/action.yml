@@ -1,0 +1,163 @@
+# One Claude review lane: install tools, render the prompt, run claude-code-action, and print
+# Claude's error when it fails. Prompts and scripts are read from ${{ github.action_path }}, so they
+# are always the version this action was pinned at.
+#
+# The caller checks out the pull request first (actions/checkout with fetch-depth: 0 and
+# persist-credentials: false). With rules-ref: base, the base commit is added as a separate Git
+# worktree and the product rules are read from there, so a pull request cannot change the
+# criteria it is reviewed against.
+name: Claude review lane
+description: Run one Claude review lane (code or security) on the current pull request.
+author: Kazy1014
+
+inputs:
+  lane:
+    description: "Lane to run: code or security."
+    required: true
+  claude-code-oauth-token:
+    description: "Claude Code OAuth token (`claude setup-token`)."
+    required: true
+  github-token:
+    description: "Token the review uses to read the pull request and post its comment."
+    required: false
+    default: ${{ github.token }}
+  product-skill:
+    description: "Path to the product skill, for example .agents/skills/<product>-dev/SKILL.md."
+    required: false
+    default: ""
+  product-prompt:
+    description: "Optional product prompt with `## code`, `## security` and `## scope` sections."
+    required: false
+    default: .github/claude-review.md
+  rules-ref:
+    description: "Where AGENTS.md, the skill and the product prompt are read from: base or head."
+    required: false
+    default: base
+  merge-verdict:
+    description: "Append the merge verdict contract that agent-merge-check reads: true or false."
+    required: false
+    default: "false"
+  model:
+    description: "Claude model."
+    required: false
+    default: claude-sonnet-5-5
+  comment-language:
+    description: "Language of the review comment: en or ja."
+    required: false
+    default: en
+  pr-number:
+    description: "Pull request number. Defaults to the triggering pull request."
+    required: false
+    default: ${{ github.event.pull_request.number }}
+  base-ref:
+    description: "Base branch name. Defaults to the triggering pull request's base."
+    required: false
+    default: ${{ github.event.pull_request.base.ref }}
+  base-sha:
+    description: "Base commit the rules are read from with rules-ref: base."
+    required: false
+    default: ${{ github.event.pull_request.base.sha }}
+  head-sha:
+    description: "Head commit the verdict is given for."
+    required: false
+    default: ${{ github.event.pull_request.head.sha }}
+
+outputs:
+  execution-file:
+    description: "Claude's execution output file."
+    value: ${{ steps.claude.outputs.execution_file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Install the GitHub CLI and Bun
+      id: tools
+      shell: bash
+      run: bash "$GITHUB_ACTION_PATH/scripts/install-tools.sh"
+
+    - name: Check out the rules from the base commit
+      id: rules
+      shell: bash
+      env:
+        RULES_REF: ${{ inputs.rules-ref }}
+        BASE_SHA: ${{ inputs.base-sha }}
+      run: |
+        case "$RULES_REF" in
+          head)
+            echo "dir=$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
+            echo "claude-args=" >> "$GITHUB_OUTPUT"
+            ;;
+          base)
+            if ! [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error title=Claude review::base-sha must be a full commit SHA, got '$BASE_SHA'"
+              exit 1
+            fi
+            if ! git -C "$GITHUB_WORKSPACE" cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+              echo "::error title=Claude review::base commit $BASE_SHA is not in the checkout; check out with fetch-depth: 0"
+              exit 1
+            fi
+            dir="$RUNNER_TEMP/agent-ci-rules"
+            git -C "$GITHUB_WORKSPACE" worktree add --detach "$dir" "$BASE_SHA"
+            echo "dir=$dir" >> "$GITHUB_OUTPUT"
+            echo "claude-args=--add-dir $dir" >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            echo "::error title=Claude review::rules-ref must be base or head, got '$RULES_REF'"
+            exit 1
+            ;;
+        esac
+
+    - name: Render the prompt
+      id: render
+      shell: bash
+      env:
+        LANE: ${{ inputs.lane }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        BASE_REF: ${{ inputs.base-ref }}
+        HEAD_SHA: ${{ inputs.head-sha }}
+        RULES_DIR: ${{ steps.rules.outputs.dir }}
+        RULES_REF: ${{ inputs.rules-ref }}
+        PRODUCT_SKILL: ${{ inputs.product-skill }}
+        PRODUCT_PROMPT: ${{ inputs.product-prompt }}
+        MERGE_VERDICT: ${{ inputs.merge-verdict }}
+        COMMENT_LANGUAGE: ${{ inputs.comment-language }}
+      run: |
+        python3 -I "$GITHUB_ACTION_PATH/scripts/render-prompt.py" \
+          --prompts-dir "$GITHUB_ACTION_PATH/../../prompts/review" \
+          --lane "$LANE" \
+          --repository "$REPOSITORY" \
+          --pr-number "$PR_NUMBER" \
+          --base-ref "$BASE_REF" \
+          --head-sha "$HEAD_SHA" \
+          --rules-dir "$RULES_DIR" \
+          --rules-ref "$RULES_REF" \
+          --product-skill "$PRODUCT_SKILL" \
+          --product-prompt "$PRODUCT_PROMPT" \
+          --merge-verdict "$MERGE_VERDICT" \
+          --language "$COMMENT_LANGUAGE" \
+          --output "$RUNNER_TEMP/claude-review-$LANE.md" \
+          --github-output "$GITHUB_OUTPUT"
+        echo "Rendered prompt: $RUNNER_TEMP/claude-review-$LANE.md"
+
+    # --setting-sources user keeps Claude Code from loading CLAUDE.md and .claude/ settings from the
+    # checkout, which the pull request controls.
+    - uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
+      id: claude
+      with:
+        path_to_bun_executable: ${{ steps.tools.outputs.bun }}
+        claude_code_oauth_token: ${{ inputs.claude-code-oauth-token }}
+        github_token: ${{ inputs.github-token }}
+        claude_args: >-
+          --model ${{ inputs.model }}
+          --setting-sources user
+          --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+          ${{ steps.rules.outputs.claude-args }}
+        prompt: ${{ steps.render.outputs.prompt }}
+
+    - name: Show the Claude error
+      if: failure()
+      shell: bash
+      env:
+        EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+      run: python3 -I "$GITHUB_ACTION_PATH/scripts/show-claude-error.py" "${EXECUTION_FILE:-$RUNNER_TEMP/claude-execution-output.json}"
