@@ -142,6 +142,11 @@ runs:
 
     # --setting-sources user keeps Claude Code from loading CLAUDE.md and .claude/ settings from the
     # checkout, which the pull request controls.
+    #
+    # --disallowedTools "Read(./.git/**)" keeps Claude out of .git/. In agent mode claude-code-action
+    # writes github_token into the origin URL in .git/config, so a prompt-injected pull request could
+    # otherwise ask Claude to read that file and quote the token in its comment. A Read deny also
+    # applies to Grep and Glob. tests/test_action.py fails if this deny is removed.
     - uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
       id: claude
       with:
@@ -152,6 +157,7 @@ runs:
           --model ${{ inputs.model }}
           --setting-sources user
           --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
+          --disallowedTools "Read(./.git/**)"
           ${{ steps.rules.outputs.claude-args }}
         prompt: ${{ steps.render.outputs.prompt }}
 
