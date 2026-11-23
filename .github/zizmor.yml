@@ -1,0 +1,13 @@
+rules:
+  # claude-review.yml uses this repository's action by the SHA of an earlier commit with the same
+  # action/ and prompts/ trees, and its comment names the release that content belongs to. That
+  # SHA can never be the release tag's own commit, so the comment never matches the tag.
+  # scripts/action-ref.sh check (ci.yml "Release ref") verifies this pin instead.
+  ref-version-mismatch:
+    ignore:
+      - claude-review.yml
+  # dogfood-review.yml calls the reusable workflow with `./`, which actionlint and every product
+  # repository understand.
+  self-repository:
+    ignore:
+      - dogfood-review.yml

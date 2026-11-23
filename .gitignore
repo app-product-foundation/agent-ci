@@ -1,0 +1,4 @@
+# Agent worktrees (git-management): keep them out of the primary checkout's status.
+.claude/.worktrees/
+__pycache__/
+*.pyc

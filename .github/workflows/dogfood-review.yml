@@ -1,0 +1,25 @@
+# agent-ci reviews its own pull requests with the reusable workflow from this commit, so a change
+# to the review reviews itself. It is also the reference caller for products (README.md).
+name: Claude review
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, ready_for_review, reopened]
+
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: read
+
+jobs:
+  claude:
+    uses: ./.github/workflows/claude-review.yml
+    with:
+      merge-verdict: true
+    secrets:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

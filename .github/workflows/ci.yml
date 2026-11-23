@@ -1,0 +1,65 @@
+# agent-ci's own checks: workflow and shell lint, workflow security, the prompt renderer's tests,
+# and the release-ref check (the reusable workflow's action ref has this commit's action/ and
+# prompts/ trees; on a tag, it also names the tag). GitHub-hosted runners only.
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+    tags: ["v*.*.*"]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint (actionlint, shellcheck, zizmor)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the lint tools
+        run: bash scripts/install-lint-tools.sh
+      - name: actionlint
+        run: actionlint
+      - name: shellcheck
+        run: shellcheck action/claude-review/scripts/*.sh scripts/*.sh
+      - name: zizmor
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: zizmor --format=github .
+
+  test:
+    name: Prompt tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: render-prompt tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Python syntax
+        run: python3 -m py_compile action/claude-review/scripts/*.py
+
+  action-ref:
+    name: Release ref
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check the action ref in claude-review.yml
+        env:
+          TAG: ${{ github.ref_type == 'tag' && github.ref_name || '' }}
+        run: bash scripts/action-ref.sh check "$TAG"
