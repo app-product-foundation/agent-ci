@@ -2,6 +2,26 @@
 
 Each release says whether the review output changes. Prompt changes are behaviour changes.
 
+## [1.0.3] - 2026-11-26
+
+Security hardening (app-product-foundation/agent-ci#10). **The prompt changes, so the rendered
+prompt snapshots change;** the comment's content rules (heading, findings format, verdict lines and
+marker) are the same as 1.0.2. Update from 1.0.2: the `.git` read deny in 1.0.2 alone does not keep
+a prompt-injected pull request from getting the job's token into a review comment.
+
+- Claude no longer posts the comment. `gh pr comment` is removed from its allowed tools, so it has
+  no write tool at all; the prompt asks for the comment as Claude's final reply.
+- A new step in the composite action, `scripts/post-comment.py`, posts that reply with the
+  action's token. It withholds a reply that contains the job's GitHub or Claude token (also
+  base64-encoded) or a credential-shaped string, posts a fixed notice without a merge verdict in its
+  place, and fails the lane.
+- Claude's file tools are also denied `/proc/` (`Read(//proc/**)`), where process environments
+  hold the job's tokens.
+- The "Show the Claude error" step runs only when Claude itself failed, so a withheld reply is
+  never printed to the log.
+- Tests: `tests/test_post_comment.py`, and `tests/test_action.py` now fails if a write tool comes
+  back or a deny is removed.
+
 ## [1.0.2] - 2026-11-23
 
 Tool restriction hardened (app-product-foundation/agent-ci#7). **Review output does not change:**

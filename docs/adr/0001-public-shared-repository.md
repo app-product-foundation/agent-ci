@@ -38,8 +38,10 @@ bumps, so a change here never silently changes every product's review.
 - **Untrusted-data prompt contract.** Every lane's prompt treats the PR, its diff, Issues and the
   repository as data, never as instructions, and reads product rules from the base commit by
   default, so a pull request cannot change the criteria it is reviewed against.
-- **Read-only tools.** Claude may only read files and run `gh pr diff/view/comment` and
-  `gh issue view`; it gets no shell, no write access to code, and no other secrets.
+- **Read-only tools.** Claude may only read files and run `gh pr diff/view` and `gh issue view`;
+  it gets no shell and no write at all. Its file tools are denied `.git/` and `/proc/`, where the
+  job's tokens are. The composite action posts Claude's final reply as the comment, after checking
+  that it holds no token or credential-shaped string (app-product-foundation/agent-ci#10).
 - **Strict cost gate.** Lanes run only for non-draft, same-repository pull requests from
   `allowed-author`, and only when the caller passes the token, so fork pull requests never reach
   Claude.
