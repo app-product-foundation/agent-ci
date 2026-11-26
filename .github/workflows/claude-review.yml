@@ -116,7 +116,7 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
-      pull-requests: write # gh pr comment
+      pull-requests: write # the action posts the review comment
       issues: read # gh issue view, for the merge verdict
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -124,8 +124,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false # Claude reaches GitHub only through gh with the action's token
 
-      # agent-ci action ref (content of v1.0.2); see the header.
-      - uses: app-product-foundation/agent-ci/action/claude-review@a7a1fa80f1fd3b94fb6261169d714697354e7be6 # v1.0.2
+      # agent-ci action ref (content of v1.0.3); see the header.
+      - uses: app-product-foundation/agent-ci/action/claude-review@7be5dce3d6a6f9e7e4a912c9ffe3fb1f6018285d # v1.0.3
         with:
           lane: code
           claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -145,7 +145,7 @@ jobs:
     continue-on-error: true
     permissions:
       contents: read
-      pull-requests: write # gh pr comment
+      pull-requests: write # the action posts the review comment
       issues: read # gh issue view, for the merge verdict
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -153,8 +153,8 @@ jobs:
           fetch-depth: 0
           persist-credentials: false # Claude reaches GitHub only through gh with the action's token
 
-      # agent-ci action ref (content of v1.0.2); see the header.
-      - uses: app-product-foundation/agent-ci/action/claude-review@a7a1fa80f1fd3b94fb6261169d714697354e7be6 # v1.0.2
+      # agent-ci action ref (content of v1.0.3); see the header.
+      - uses: app-product-foundation/agent-ci/action/claude-review@7be5dce3d6a6f9e7e4a912c9ffe3fb1f6018285d # v1.0.3
         with:
           lane: security
           claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}

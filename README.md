@@ -127,7 +127,8 @@ order, with plain `{{MARKER}}` replacement and no templating engine:
 
 1. Context: repository, PR number, base branch, head SHA, lane.
 2. [`prompts/review/base.md`](prompts/review/base.md): the contract shared by every lane
-   (verified findings only, untrusted data, exactly one comment, a comment even without findings).
+   (verified findings only, untrusted data, the comment as the final reply, a comment even
+   without findings).
 3. [`code.md`](prompts/review/code.md) or [`security.md`](prompts/review/security.md).
 4. Product rules: `AGENTS.md`, the product skill, and the product prompt's lane and `scope` sections.
 5. [`verdict.md`](prompts/review/verdict.md), only with `merge-verdict: true`. Its closing marker,
