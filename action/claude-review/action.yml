@@ -1,5 +1,5 @@
-# One Claude review lane: install tools, render the prompt, run claude-code-action, and print
-# Claude's error when it fails. Prompts and scripts are read from ${{ github.action_path }}, so they
+# One Claude review lane: install tools, render the prompt, run claude-code-action, post Claude's
+# reply as the lane's comment, and print Claude's error when it fails. Prompts and scripts are read from ${{ github.action_path }}, so they
 # are always the version this action was pinned at.
 #
 # The caller checks out the pull request first (actions/checkout with fetch-depth: 0 and
@@ -143,10 +143,15 @@ runs:
     # --setting-sources user keeps Claude Code from loading CLAUDE.md and .claude/ settings from the
     # checkout, which the pull request controls.
     #
-    # --disallowedTools "Read(./.git/**)" keeps Claude out of .git/. In agent mode claude-code-action
-    # writes github_token into the origin URL in .git/config, so a prompt-injected pull request could
-    # otherwise ask Claude to read that file and quote the token in its comment. A Read deny also
-    # applies to Grep and Glob. tests/test_action.py fails if this deny is removed.
+    # Claude gets no write tools. It cannot post the comment itself: it gives the comment as its final
+    # reply, and the next step checks and posts it. A tool that posts could otherwise send any file it
+    # can read, whatever the read denies below say.
+    #
+    # --disallowedTools keeps Claude's file tools (a Read deny also applies to Grep and Glob) out of:
+    # - .git/: in agent mode claude-code-action writes github_token into the origin URL in
+    #   .git/config, so a prompt-injected pull request could ask Claude to quote it.
+    # - /proc/: the environment of Claude and the other processes in the job holds the tokens.
+    # tests/test_action.py fails if a write tool comes back or one of these denies is removed.
     - uses: anthropics/claude-code-action@16f9f71ab9c490faf367f94dd294897edc25be33 # v1.0.261
       id: claude
       with:
@@ -156,13 +161,31 @@ runs:
         claude_args: >-
           --model ${{ inputs.model }}
           --setting-sources user
-          --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh issue view:*)"
-          --disallowedTools "Read(./.git/**)"
+          --allowedTools "Read,Grep,Glob,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh issue view:*)"
+          --disallowedTools "Read(./.git/**),Read(//proc/**)"
           ${{ steps.rules.outputs.claude-args }}
         prompt: ${{ steps.render.outputs.prompt }}
 
+    - name: Post the review comment
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-code-oauth-token }}
+        EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
+        REPOSITORY: ${{ github.repository }}
+        PR_NUMBER: ${{ inputs.pr-number }}
+        LANE: ${{ inputs.lane }}
+      run: |
+        python3 -I "$GITHUB_ACTION_PATH/scripts/post-comment.py" \
+          --execution-file "${EXECUTION_FILE:-$RUNNER_TEMP/claude-execution-output.json}" \
+          --repository "$REPOSITORY" \
+          --pr-number "$PR_NUMBER" \
+          --lane "$LANE"
+
+    # Only when Claude itself failed: the reply of a run that finished may be one the previous step
+    # withheld, and it must not reach the log.
     - name: Show the Claude error
-      if: failure()
+      if: failure() && steps.claude.outcome == 'failure'
       shell: bash
       env:
         EXECUTION_FILE: ${{ steps.claude.outputs.execution_file }}
