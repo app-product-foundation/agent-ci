@@ -14,7 +14,8 @@ a prompt-injected pull request from getting the job's token into a review commen
 - A new step in the composite action, `scripts/post-comment.py`, posts that reply with the
   action's token. It withholds a reply that contains the job's GitHub or Claude token (also
   base64-encoded) or a credential-shaped string, posts a fixed notice without a merge verdict in its
-  place, and fails the lane.
+  place, and fails the lane. This check is a second layer: other encodings (hex, split or reversed
+  text) pass it, so the first layer remains that Claude cannot read the tokens.
 - Claude's file tools are also denied `/proc/` (`Read(//proc/**)`), where process environments
   hold the job's tokens.
 - The "Show the Claude error" step runs only when Claude itself failed, so a withheld reply is
